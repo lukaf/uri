@@ -25,7 +25,6 @@ def usage():
 
 def fetch_uri(uri):
     try:
-        print "timeout: %s" % timeout
         data = ul.urlopen(uri, timeout=timeout).read()
         return data
     except (ul.HTTPError, ul.URLError, ValueError) as msg:

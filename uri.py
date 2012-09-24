@@ -1,7 +1,9 @@
 #!/usr/bin/python
 
 import urllib2 as ul
-import sys, re, time
+import sys
+import re
+import time
 import multiprocessing as mp
 import getopt
 
@@ -10,18 +12,25 @@ total_time = time.time()
 uri = None
 count = None
 timeout = 5
+try:
+    workers = mp.cpu_count() * 2
+except:
+    workers = 2
 
 link_regexp = [
-    re.compile('.*href="', re.I|re.M|re.S),
-    re.compile('.*src="', re.I|re.M|re.S)
+    re.compile('.*href="', re.I | re.M | re.S),
+    re.compile('.*src="', re.I | re.M | re.S)
 ]
 
+
 def usage():
-    print "Usage: %s -c int -u uri" % sys.argv[0]
+    print "Usage: %s -c int -u uri -w int" % sys.argv[0]
     print "\t-c int, number of connections"
     print "\t-u string, uri"
-    print "\t-t int, timeout (defaults to 5 seconds)"
+    print "\t-t int, timeout (defaults to %d seconds)" % timeout
+    print "\t-w int, number of workers processes (defaults to %d)" % workers
     sys.exit(0)
+
 
 def fetch_uri(uri):
     try:
@@ -30,6 +39,7 @@ def fetch_uri(uri):
     except (ul.HTTPError, ul.URLError, ValueError) as msg:
         print "Failed loading uri: %s" % uri
         print msg
+
 
 def fake_eki(index_svg, proc_id):
     uris = []
@@ -51,7 +61,7 @@ def fake_eki(index_svg, proc_id):
     return time_elapsed
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], 'hc:u:t:')
+    opts, args = getopt.getopt(sys.argv[1:], 'hc:u:t:w:')
 except getopt.GetoptError, msg:
     print "Error: %s" % msg
     usage()
@@ -72,13 +82,15 @@ for o, a in opts:
             usage()
     elif o == '-h':
         usage()
+    elif o == '-w':
+        workers = int(a)
     else:
         print "Error: unknown options %s" % o
 
-if count == None or uri == None:
+if count is None or uri is None:
     usage()
 
-p = mp.Pool()
+p = mp.Pool(processes=workers)
 for i in range(count):
     p.apply_async(fake_eki, (uri, i), callback=time_results.append)
 

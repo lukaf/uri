@@ -7,11 +7,14 @@ import time
 import multiprocessing as mp
 import getopt
 
-time_results = []
+# time and data size results
+# holds tuples (time, size)
+results = set()
 total_time = time.time()
 uri = None
 count = None
 timeout = 5
+
 try:
     workers = mp.cpu_count() * 2
 except:
@@ -42,23 +45,25 @@ def fetch_uri(uri):
 
 
 def fake_eki(index_svg, proc_id):
-    uris = []
+    total_data = 0
+    uris = set()
     start = time.time()
-    global time_results
     data = fetch_uri(index_svg)
+    total_data += len(data)
     for line in data.split('\n'):
         for xp in link_regexp:
             if xp.search(line):
-                uris.append(line.split('"')[1])
+                uris.add(line.split('"')[1])
 
     for uri in uris:
         full_uri = '/'.join(index_svg.split('/')[:-1]) + "/" + uri
-        fetch_uri(full_uri)
+        total_data += len(fetch_uri(full_uri))
 
     time_elapsed = time.time() - start
-    sys.stdout.write("\rProc %s finished in %.3f seconds" % (proc_id, time_elapsed))
+    sys.stdout.write("\rProc %s finished in %.3f seconds" %
+        (proc_id, time_elapsed))
     sys.stdout.flush()
-    return time_elapsed
+    return (time_elapsed, total_data)
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'hc:u:t:w:')
@@ -91,17 +96,19 @@ if count is None or uri is None:
     usage()
 
 p = mp.Pool(processes=workers)
-for i in range(count):
-    p.apply_async(fake_eki, (uri, i), callback=time_results.append)
+for i in xrange(count):
+    p.apply_async(fake_eki, (uri, i), callback=results.add)
 
 p.close()
 p.join()
 
-time_results.sort()
+time_results, data_results = zip(*results)
+
 print "\n"
-print "Max time: %.3fs" % time_results[-1]
-print "Min time: %.3fs" % time_results[0]
+print "Max time: %.3fs" % max(time_results)
+print "Min time: %.3fs" % min(time_results)
 print "Avg time: %.3fs" % (sum(time_results) / len(time_results))
+print "Data transfered: %.2f MB" % (sum(data_results) / (2.0 ** 20))
 print
 print "Total client time: %.3fs" % sum(time_results)
 print "Total script time: %.3fs" % (time.time() - total_time)
